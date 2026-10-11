@@ -1,0 +1,35 @@
+# ============================================================================
+# qnep (MatPL) 纯 CPU 模拟输入模板
+#   环境: source ~/deepmd-kit/bin/activate ; LMP=~/build_nep_cpu/lammps/build/lmp
+#   运行: mpirun -np N $LMP -in in.lammps   (N = MPI 核数; OpenMP 无效)
+# ============================================================================
+
+units           metal
+atom_style      charge            # 必须 (电荷模型)
+boundary        p p p
+
+read_data       data.lmp          # atom_style charge 的结构, Atoms: id type q x y z
+
+# ---- 势函数 ----------------------------------------------------------------
+#   matpl/nep + 电荷模型; 长程用 kspace ewald (nep4_charge2 = 纯 Ewald,
+#   比 pppm 快 ~1.4x 且结果一致)。不要再写 kspace_style。
+pair_style      matpl/nep nep.txt kspace ewald
+pair_coeff      * * O H           # 顺序要与 nep.txt 头一致
+
+neighbor        2.0 bin
+neigh_modify    delay 10 every 1 check yes
+
+# ---- 动力学 ----------------------------------------------------------------
+timestep        0.0005            # 0.5 fs
+
+velocity        all create 3000 12345 dist gaussian
+fix             1 all nvt temp 3000 3000 0.05
+
+thermo          100
+# evdwl=短程 NEP 能, ecoul=长程(Ewald)能, pe=evdwl+ecoul
+thermo_style    custom step temp pe evdwl ecoul ke etotal press pxx pyy pzz pxy pxz pyz vol
+
+dump            1 all custom 100 dump.lammpstrj id type x y z
+dump_modify     1 sort id
+
+run             6000              # 3 ps @ 0.5 fs

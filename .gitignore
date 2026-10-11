@@ -1,0 +1,5 @@
+build_nep_cpu/
+*.o
+*.mod
+lmp
+__pycache__/
