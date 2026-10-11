@@ -121,6 +121,12 @@ fix ID group spring/self/scale k_or_varname [x|y|z|xy|xz|yz|xyz]
   pair_style hybrid/scaled v_lambda matpl/nep nep.txt kspace ewald v_one_minus_lambda ufm 5.0
   pair_coeff * * matpl/nep O H
   ```
+- 可选关键字 **`probe`**：只统计弹簧能量、**不加力**，用作"常数弹簧探针"记录**未缩放**的
+  弹簧能（不受 λ 影响、端点也正确）：
+  ```
+  fix f_probe O spring/self/scale 10.6889 probe   # k=k0, 只算能量, 不加力
+  fix_modify f_probe energy no
+  ```
 - **验证**：`λ=0.5`（`k=5.34445`）变量版与 `fix spring/self 5.34445` 常数版
   200 步**逐行完全一致**；`λ=1` 时 `f_spring=0`，`λ=0` 时弹簧全开。
 - 源文件：[`fixes/fix_spring_self_scale.{cpp,h}`](fixes/)（基于 LAMMPS `fix_spring_self`，

@@ -301,5 +301,13 @@ fix_modify f_spring energy no
 配 `pair_style hybrid/scaled v_lambda matpl/nep ... v_one_minus_lambda ufm 5.0` 即可
 实现 `H(λ)=λ·NEP+(1−λ)(UF+弹簧)`。
 
+**可选关键字 `probe`**：只统计弹簧能量、**不加力**，用作"常数弹簧探针"记录**未缩放**的
+弹簧能（与 λ 无关，端点 λ=1 也正确）：
+
+```
+fix f_probe O spring/self/scale 10.6889 probe
+fix_modify f_probe energy no
+```
+
 **验证**：λ=0.5（k=5.34445）变量版 vs `fix spring/self 5.34445` 常数版 200 步
 **逐行完全一致**；λ=1 → `f_spring=0`（弹簧关闭）；λ=0 → 弹簧全开。

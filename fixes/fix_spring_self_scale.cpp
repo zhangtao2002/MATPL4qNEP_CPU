@@ -44,7 +44,7 @@ FixSpringSelfScale::FixSpringSelfScale(LAMMPS *lmp, int narg, char **arg) :
   kstr(nullptr),
   xoriginal(nullptr)
 {
-  if ((narg < 4) || (narg > 5))
+  if ((narg < 4) || (narg > 6))
     error->all(FLERR,"Illegal fix spring/self/scale command");
 
   restart_peratom = 1;
@@ -70,21 +70,24 @@ FixSpringSelfScale::FixSpringSelfScale(LAMMPS *lmp, int narg, char **arg) :
   }
 
   xflag = yflag = zflag = 1;
+  probe = 0;
 
-  if (narg == 5) {
-    if (strcmp(arg[4],"xyz") == 0) {
+  for (int i = 4; i < narg; i++) {
+    if (strcmp(arg[i],"probe") == 0) {
+      probe = 1;
+    } else if (strcmp(arg[i],"xyz") == 0) {
       xflag = yflag = zflag = 1;
-    } else if (strcmp(arg[4],"xy") == 0) {
+    } else if (strcmp(arg[i],"xy") == 0) {
       zflag = 0;
-    } else if (strcmp(arg[4],"xz") == 0) {
+    } else if (strcmp(arg[i],"xz") == 0) {
       yflag = 0;
-    } else if (strcmp(arg[4],"yz") == 0) {
+    } else if (strcmp(arg[i],"yz") == 0) {
       xflag = 0;
-    } else if (strcmp(arg[4],"x") == 0) {
+    } else if (strcmp(arg[i],"x") == 0) {
       yflag = zflag = 0;
-    } else if (strcmp(arg[4],"y") == 0) {
+    } else if (strcmp(arg[i],"y") == 0) {
       xflag = zflag = 0;
-    } else if (strcmp(arg[4],"z") == 0) {
+    } else if (strcmp(arg[i],"z") == 0) {
       xflag = yflag = 0;
     } else error->all(FLERR,"Illegal fix spring/self/scale command");
   }
@@ -213,9 +216,11 @@ void FixSpringSelfScale::post_force(int /*vflag*/)
       if (!xflag) dx = 0.0;
       if (!yflag) dy = 0.0;
       if (!zflag) dz = 0.0;
-      f[i][0] -= k*dx;
-      f[i][1] -= k*dy;
-      f[i][2] -= k*dz;
+      if (!probe) {                 // probe = tally energy only, no force
+        f[i][0] -= k*dx;
+        f[i][1] -= k*dy;
+        f[i][2] -= k*dz;
+      }
       espring += k * (dx*dx + dy*dy + dz*dz);
     }
 

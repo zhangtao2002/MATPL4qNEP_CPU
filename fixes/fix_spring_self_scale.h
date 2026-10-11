@@ -55,6 +55,7 @@ class FixSpringSelfScale : public Fix {
   double espring;
   double **xoriginal;    // original coords of atoms
   int xflag, yflag, zflag;
+  int probe;    // if set, only tally the spring energy, do not apply forces
   int ilevel_respa;
 };
 
