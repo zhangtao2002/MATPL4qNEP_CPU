@@ -1,0 +1,65 @@
+# ============================================================
+# 第二阶段: H_aux -> H_SI
+# 恢复真实 NEP 势, 同时关掉弹簧和 UF
+# 调用方式(示例): lmp -in in.ti_stage2 -var lambda_in 0.5
+#
+# 【改动说明 — 2026-10-11】
+#   原来用 pair_style hybrid/overlay + fix adapt 缩放 matpl/nep,
+#   但 fix adapt 是"按两体 pair 参数缩放",需要 pair 实现 extract("scale");
+#   matpl/nep 没有,且 NEP 是多体势,按原子对缩放语义不清 => 跑不起来。
+#   改为 pair_style hybrid/scaled: 它按"变量因子"整体缩放每个子势的能量/力,
+#   不需要子势支持 extract, NEP 可以直接用。
+#     pair_style hybrid/scaled <因子1> <子势1> <参数...> <因子2> <子势2> <参数...>
+#   因子是 variable, 每步自动更新。
+#   注意: ufm 属于 EXTRA-PAIR 包, 编译时要 -DPKG_EXTRA-PAIR=on。
+# ============================================================
+
+units           metal
+atom_style      charge
+boundary        p p p
+
+read_data       data.lmp
+
+# ---------- 原子分组 ----------
+group           O type 1
+group           H type 2
+
+# ---------- lambda (外部传入, 0 -> 1) ----------
+variable        lambda equal ${lambda_in}
+variable        one_minus_lambda equal 1.0-v_lambda
+
+# ---------- 势函数: 按 lambda 缩放并叠加 ----------
+#   NEP 乘 lambda, UF 乘 (1-lambda); 直接乘各自子势的能量+力
+pair_style      hybrid/scaled  v_lambda  matpl/nep nep.txt kspace ewald  v_one_minus_lambda  ufm 5.0
+
+# 注意: 模型文件只在 pair_style 里给一次; pair_coeff 这一行只写元素 (不能再带 nep.txt)
+pair_coeff      * * matpl/nep O H
+
+pair_coeff      1 1 ufm 0.0 1.0
+pair_coeff      2 2 ufm 25.0 1.0
+pair_coeff      1 2 ufm 25.0 0.4
+
+# ---------- 缩放 O 弹簧: 1 -> 0 ----------
+#   spring/self 的 k 只能是常数, 不能每步变; 这里用自定义 fix spring/self/scale,
+#   它把 k 当成 equal-style 变量, 每步重新求值 => 弹簧常数随 lambda 连续缩放.
+variable        kappa_2 equal 10.6889*v_one_minus_lambda
+fix             f_spring O spring/self/scale v_kappa_2
+fix_modify      f_spring energy no
+
+# ---------- 记录 ----------
+#   pe         = 总势能 (lambda*NEP + (1-lambda)*UF; 不含弹簧能, 因为上面 energy no)
+#   f_f_spring = 弹簧能量
+#   后处理: dH/dlambda = U_NEP - (U_spring + U_HH + U_OH)
+# fix ave/time 的取值必须是 c_/f_/v_ (thermo 关键字 step/pe 不是合法值);
+# 总势能用 c_thermo_pe (LAMMPS 内部 PE compute)
+fix             f_record all ave/time 1 1 1 v_lambda c_thermo_pe f_f_spring &
+                file ti_stage2.dat
+
+# ---------- 时间步长与系综 ----------
+timestep        0.0004
+velocity        all create 3000.0 4928459 dist gaussian
+fix             f_nvt all nvt temp 3000.0 3000.0 0.4
+
+# ---------- 平衡与生产 ----------
+run             1000
+run             50000

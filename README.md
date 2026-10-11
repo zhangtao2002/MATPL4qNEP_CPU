@@ -98,7 +98,35 @@ pair_coeff   * * O H           # 顺序与 nep.txt 头一致
 
 运行模板见 [`template/`](template/)（`in.lammps` / `submit.sh` / `make_supercell.py`）。
 
-## 5. 性能（单节点，`kspace ewald`）
+## 5. 附加: 自定义 fix `spring/self/scale`（TI 连续缩放弹簧用）
+
+做自由能 / TI 时常需要把"拴到初始位置"的弹簧按 `(1-λ)` **连续缩放**。LAMMPS 的
+`fix spring/self` 的 `k` **只能是常数**；`fix adapt` 不支持缩放 fix（实测报
+`Nothing to adapt`）；`fix ti/spring` 的参考态又只有弹簧，无法保留额外的软势（UF）。
+因此本仓库附带一个很小的自定义 fix：
+
+```
+fix ID group spring/self/scale k_or_varname [x|y|z|xy|xz|yz|xyz]
+```
+
+- 与 `fix spring/self` 完全一致，只是 `arg[3]` 可以是 **equal-style 变量**（写成 `v_<name>`），
+  **每步重新求值**，于是 `k` 可随 `λ` 连续变化：
+  ```
+  variable  kappa_2 equal 10.6889*(1.0-v_lambda)
+  fix       f_spring O spring/self/scale v_kappa_2
+  fix_modify f_spring energy no
+  ```
+- 配合 `pair_style hybrid/scaled` 可整体缩放多体势（NEP 无需支持 `extract`）：
+  ```
+  pair_style hybrid/scaled v_lambda matpl/nep nep.txt kspace ewald v_one_minus_lambda ufm 5.0
+  pair_coeff * * matpl/nep O H
+  ```
+- **验证**：`λ=0.5`（`k=5.34445`）变量版与 `fix spring/self 5.34445` 常数版
+  200 步**逐行完全一致**；`λ=1` 时 `f_spring=0`，`λ=0` 时弹簧全开。
+- 源文件：[`fixes/fix_spring_self_scale.{cpp,h}`](fixes/)（基于 LAMMPS `fix_spring_self`，
+  改动仅限"k 读变量"）。
+
+## 6. 性能（单节点，`kspace ewald`）
 
 | 体系 | 配置 | 速度 |
 |---|---|---|
@@ -109,7 +137,7 @@ pair_coeff   * * O H           # 顺序与 nep.txt 头一致
 体系统大 MPI 扩展越好（10k 以下太小的会因 ghost/通信占比高而变差）。
 补长程能对速度**无可见影响**（±1% 噪声）。
 
-## 6. 许可 / 致谢
+## 7. 许可 / 致谢
 - NEP 势函数与描述符的实现源自 **GPUMD**（GPL）；LAMMPS 与 **MatPL** 亦为 GPL。
   本仓库是它们的 CPU 派生物与补丁，**遵循上游 GPL**，版权归原作者。
 - 交叉验证使用了 **calorine**（GPUMD 的 Python 接口）。
@@ -124,5 +152,6 @@ build/
   patch_pe2.py        补丁2: 长程能 -> ecoul
 matpl_cpu_src/        上游 MatPL-2026.3 的 CPU pair style 源码（未改）
 patched/              打完两处补丁的最终文件（可直接替换/参考）
+fixes/                自定义 fix spring/self/scale（TI 连续缩放弹簧用）
 template/             运行模板 (in.lammps / submit.sh / make_supercell.py / README)
 ```

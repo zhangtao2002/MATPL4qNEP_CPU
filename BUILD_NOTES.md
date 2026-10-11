@@ -256,3 +256,50 @@ Step    PotEng(pe)     E_vdwl(短程)   E_coul(长程)
 输入里用：`thermo_style custom step temp pe evdwl ecoul ...`（`evdwl`=短程，`ecoul`=长程，`pe`=总）。
 
 > 顺序：先 `patch_pe.py`，再 `patch_pe2.py`。备份：`nep_cpu.{cpp,h}.bak_coul`、`pair_nep.cpp.bak_coul`。
+
+---
+
+## 8. 附加自定义 fix：`spring/self/scale`（TI 连续缩放弹簧）
+
+**动机**：TI 里要把"拴到初始位置"的弹簧按 `(1-λ)` **连续缩放**。试过的现成方案都不行：
+
+- `fix spring/self`：`k` 只能是常数（`utils::numeric`），写 `v_var` 会报
+  `Expected floating point parameter instead of 'v_...'`。
+- `fix adapt ... fix spring/self`：`fix adapt` 只支持 `pair/bond/angle/kspace/atom`，
+  实测报 `Nothing to adapt in fix adapt command`。
+- `fix ti/spring`：参考态**只有弹簧**（无额外软势），且它把整个 pair 力乘 `(1-λ)`
+  （弹簧端把 pair 力清零），无法保留 UF；用 `hybrid/scaled` 去反补偿会在 `λ→1`
+  发散成 `1/(1-λ)`。
+
+**做法**：写了个很小的自定义 fix（`fixes/fix_spring_self_scale.{cpp,h}`），基于 LAMMPS
+`fix_spring_self.cpp`，只改"k 的来源"：
+
+- `arg[3]` 支持 `v_<name>`（equal-style 变量）或常数；
+- `init()` 里 `input->variable->find()` + `equalstyle()` 校验；
+- `post_force()` 每步 `k = input->variable->compute_equal(kvar)` 重新求值；
+- 其余（拴到初始位置、`energy_global_flag`、restart、respa）与原 fix 完全一致。
+
+**编译**：文件放到 LAMMPS `src/` 后，**必须重跑 `cmake`**（cmake 在配置时 glob
+`src/*.cpp`），再 `cmake --build`。`style_fix.h` 会自动扫描到
+`FixStyle(spring/self/scale,...)`。
+
+```bash
+cp fixes/fix_spring_self_scale.{cpp,h} ~/build_nep_cpu/lammps/src/
+cd ~/build_nep_cpu/lammps/build
+cmake . && cmake --build . -j 16
+~/build_nep_cpu/lammps/build/lmp -h | grep spring/self   # 应看到 spring/self/scale
+```
+
+**用法**：
+
+```
+variable  kappa_2 equal 10.6889*(1.0-v_lambda)
+fix       f_spring O spring/self/scale v_kappa_2
+fix_modify f_spring energy no
+```
+
+配 `pair_style hybrid/scaled v_lambda matpl/nep ... v_one_minus_lambda ufm 5.0` 即可
+实现 `H(λ)=λ·NEP+(1−λ)(UF+弹簧)`。
+
+**验证**：λ=0.5（k=5.34445）变量版 vs `fix spring/self 5.34445` 常数版 200 步
+**逐行完全一致**；λ=1 → `f_spring=0`（弹簧关闭）；λ=0 → 弹簧全开。

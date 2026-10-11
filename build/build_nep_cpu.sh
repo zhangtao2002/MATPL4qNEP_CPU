@@ -38,6 +38,9 @@ echo ">> [3/6] 拷入 MatPL CPU pair style 源码 (nep_cpu.* + pair_nep.*)"
 cp "$REPO"/matpl_cpu_src/nep_cpu.cpp "$REPO"/matpl_cpu_src/nep_cpu.h \
    "$REPO"/matpl_cpu_src/pair_nep.cpp "$REPO"/matpl_cpu_src/pair_nep.h .
 
+echo ">> [3b/6] 拷入自定义 fix spring/self/scale (k 可读变量, 用于 TI 连续缩放弹簧)"
+cp "$REPO"/fixes/fix_spring_self_scale.cpp "$REPO"/fixes/fix_spring_self_scale.h .
+
 echo ">> [4/6] 打补丁: 长程(Ewald)能进 pe, 并单独输出到 ecoul"
 python3 "$REPO"/build/patch_pe.py  "$PWD/nep_cpu.cpp"
 python3 "$REPO"/build/patch_pe2.py "$PWD"
