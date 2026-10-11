@@ -933,9 +933,6 @@ void find_descriptor_for_lammps(
   double* g_charge,
   double* g_charge_derivative)
 {
-#if defined(_OPENMP)
-#pragma omp parallel for reduction(+:g_total_potential)
-#endif
   for (int ii = 0; ii < N; ++ii) {
     int n1 = g_ilist[ii];
     int t1 = map_atom_type_idx[g_type[n1] - 1];
@@ -1084,9 +1081,6 @@ void find_force_radial_for_lammps(
   int virial_components,
   int model_index)
 {
-#if defined(_OPENMP)
-#pragma omp parallel for
-#endif
   for (int ii = 0; ii < N; ++ii) {
     int n1 = g_ilist[ii];
     int t1 = map_atom_type_idx[g_type[n1] - 1]; // from LAMMPS to NEP convention
@@ -1186,9 +1180,6 @@ void find_force_angular_for_lammps(
   int virial_components,
   int model_index)
 {
-#if defined(_OPENMP)
-#pragma omp parallel for
-#endif
   for (int ii = 0; ii < N; ++ii) {
     int n1 = g_ilist[ii];
     double Fp[MAX_DIM_ANGULAR] = {0.0};
@@ -1304,9 +1295,6 @@ void find_force_ZBL_for_lammps(
   double* g_potential,
   int model_index)
 {
-#if defined(_OPENMP)
-#pragma omp parallel for reduction(+:g_total_potential)
-#endif
   for (int ii = 0; ii < N; ++ii) {
     int n1 = g_ilist[ii];
     int type1 = map_atom_type_idx[g_type[n1] - 1];

@@ -68,6 +68,7 @@ public:
     int num_kpoints_max = 1000;
     double charge_alpha = 0.0;
     double charge_alpha_factor = 0.0;
+    double ewald_energy = 0.0;   // 最近一次算出的长程(Ewald)能
     double q_scaler[140];
   };
 
@@ -145,7 +146,6 @@ public:
   );
 
   int num_atoms = 0;
-  double ewald_energy = 0.0;   // 最近一次算出的长程(Ewald)能
   int num_cells[3];
   double ebox[18];
   ParaMB paramb;
